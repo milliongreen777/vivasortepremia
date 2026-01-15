@@ -1088,7 +1088,8 @@
                     
                     <div class="form-group">
                         <label>Telefone (WhatsApp)</label>
-                        <input type="tel" id="inputTelefone" placeholder="(11) 99999-9999" maxlength="15">
+                        <input type="tel" id="inputTelefone" placeholder="Ex: (11) 99999-9999" maxlength="20">
+                        <div class="exemplo-input">Digite com ou sem o código do Brasil (55). Aceitamos qualquer formato!</div>
                         <div id="erroTelefone" class="mensagem-erro"></div>
                     </div>
                     
@@ -1106,7 +1107,9 @@
                     
                     <div id="areaPIX" class="area-pix">
                         <div class="qrcode-container">
-                            <div id="qrCodeImage"></div>
+                            <div id="qrCodeImage" style="text-align: center; margin: 15px 0; min-height: 220px; display: flex; align-items: center; justify-content: center;">
+                                <!-- QR Code será inserido aqui -->
+                            </div>
                             <p style="color: #666; font-size: 13px; margin-top: 10px;">Escaneie o QR Code com seu app bancário</p>
                         </div>
                         
@@ -1590,54 +1593,130 @@
         }, 3000);
     }
 
-    // ETAPA 2: TELEFONE E PIX
+    // ETAPA 2: TELEFONE E PIX - CORREÇÃO DEFINITIVA
     document.getElementById('inputTelefone').addEventListener('input', function(e) {
-        formatarTelefone(this);
+        formatarTelefoneFlexivel(this);
     });
 
-    function formatarTelefone(input) {
-        let value = input.value.replace(/\D/g, '');
+    function formatarTelefoneFlexivel(input) {
+        let value = input.value;
         
-        if (value.length > 11) {
-            value = value.substring(0, 11);
+        // Guarda a posição do cursor
+        let cursorPos = input.selectionStart;
+        let originalLength = value.length;
+        
+        // Remove tudo que não é dígito para a formatação
+        let digits = value.replace(/\D/g, '');
+        
+        // Preserva o valor original se já estiver bem formatado
+        // Não remove o 55 automaticamente
+        if (digits.length <= 13) { // Suporta até 13 dígitos (55 + DDD + 9 dígitos)
+            // Aplica formatação inteligente baseada no comprimento
+            let formatted = '';
+            
+            if (digits.length <= 2) {
+                formatted = digits;
+            } else if (digits.length <= 4) {
+                formatted = '(' + digits.substring(0, 2) + ') ' + digits.substring(2);
+            } else if (digits.length <= 9) {
+                formatted = '(' + digits.substring(0, 2) + ') ' + digits.substring(2, 7) + '-' + digits.substring(7);
+            } else if (digits.length <= 11) {
+                formatted = '(' + digits.substring(0, 2) + ') ' + digits.substring(2, 7) + '-' + digits.substring(7, 11);
+            } else {
+                // Para mais de 11 dígitos (incluindo 55 no início)
+                formatted = digits;
+                // Tenta manter alguma formatação para números muito longos
+                if (digits.length === 13 && digits.startsWith('55')) {
+                    formatted = '+55 (' + digits.substring(2, 4) + ') ' + digits.substring(4, 9) + '-' + digits.substring(9, 13);
+                }
+            }
+            
+            input.value = formatted;
+            
+            // Tenta reposicionar o cursor
+            let newCursorPos = cursorPos;
+            if (originalLength !== formatted.length) {
+                newCursorPos = cursorPos + (formatted.length - originalLength);
+                if (newCursorPos < 0) newCursorPos = 0;
+                if (newCursorPos > formatted.length) newCursorPos = formatted.length;
+            }
+            
+            setTimeout(() => {
+                input.setSelectionRange(newCursorPos, newCursorPos);
+            }, 0);
         }
-        
-        if (value.length > 10) {
-            value = value.replace(/(\d{2})(\d)/, '($1) $2');
-            value = value.replace(/(\d{5})(\d)/, '$1-$2');
-        } else if (value.length > 6) {
-            value = value.replace(/(\d{2})(\d)/, '($1) $2');
-            value = value.replace(/(\d{4})(\d)/, '$1-$2');
-        } else if (value.length > 2) {
-            value = value.replace(/(\d{2})(\d)/, '($1) $2');
-        }
-        
-        input.value = value;
         
         document.getElementById('erroTelefone').style.display = 'none';
         input.style.borderColor = '#e0e0e0';
     }
 
     function validarTelefone(telefone) {
+        // Remove todos os não-dígitos para validação
         const telefoneLimpo = telefone.replace(/\D/g, '');
-        return telefoneLimpo.length === 10 || telefoneLimpo.length === 11;
+        
+        // Aceita números de 10 a 13 dígitos
+        // 10: DDD + 8 dígitos (antigo)
+        // 11: DDD + 9 dígitos (atual)
+        // 12: 55 + DDD + 8 dígitos (internacional antigo)
+        // 13: 55 + DDD + 9 dígitos (internacional atual)
+        const comprimentoValido = telefoneLimpo.length >= 10 && telefoneLimpo.length <= 13;
+        
+        // Verifica se começa com DDD válido ou 55 + DDD válido
+        const dddValido = () => {
+            if (telefoneLimpo.length === 10 || telefoneLimpo.length === 11) {
+                // Formato nacional: DDD (2 dígitos) + número (8 ou 9 dígitos)
+                const ddd = telefoneLimpo.substring(0, 2);
+                return ddd >= '11' && ddd <= '99';
+            } else if (telefoneLimpo.length === 12 || telefoneLimpo.length === 13) {
+                // Formato internacional: 55 + DDD (2 dígitos) + número (8 ou 9 dígitos)
+                if (!telefoneLimpo.startsWith('55')) return false;
+                const ddd = telefoneLimpo.substring(2, 4);
+                return ddd >= '11' && ddd <= '99';
+            }
+            return false;
+        };
+        
+        return comprimentoValido && dddValido();
     }
 
-    // FUNÇÃO PRINCIPAL PARA GERAR PIX
+    // FUNÇÃO PARA NORMALIZAR TELEFONE (MANTÉM TUDO)
+    function normalizarTelefoneParaEnvio(telefone) {
+        // Remove apenas espaços e caracteres especiais, mantém TODOS os dígitos
+        let numeroLimpo = telefone.replace(/\D/g, '');
+        
+        // NÃO remove o 55 - mantém exatamente como o usuário digitou
+        // O servidor/API deve lidar com o formato
+        return numeroLimpo;
+    }
+
+    // FUNÇÃO PRINCIPAL PARA GERAR PIX - CORRIGIDA COM QR CODE FUNCIONAL
     async function gerarPIX() {
         const telefoneInput = document.getElementById('inputTelefone');
         const telefone = telefoneInput.value;
-        const telefoneNumeros = telefone.replace(/\D/g, '');
+        const telefoneNumeros = normalizarTelefoneParaEnvio(telefone);
         const erroTelefone = document.getElementById('erroTelefone');
         
+        // Validação detalhada com mensagens específicas
         if (!validarTelefone(telefone)) {
-            erroTelefone.textContent = 'Telefone inválido. Digite um número com DDD + 8 ou 9 dígitos.';
+            let mensagemErro = 'Telefone inválido. ';
+            const telefoneLimpo = telefoneNumeros;
+            
+            if (telefoneLimpo.length < 10) {
+                mensagemErro += 'Número muito curto. ';
+            } else if (telefoneLimpo.length > 13) {
+                mensagemErro += 'Número muito longo. ';
+            }
+            
+            mensagemErro += 'Digite um número válido com DDD (ex: 11 para São Paulo, 55 para RS). Pode incluir ou não o código do Brasil (+55).';
+            
+            erroTelefone.textContent = mensagemErro;
             erroTelefone.style.display = 'block';
             telefoneInput.style.borderColor = '#e74c3c';
             telefoneInput.focus();
             return;
         }
         
+        // Armazena o telefone COMPLETO (com tudo que o usuário digitou)
         dadosUsuario.telefone = telefoneNumeros;
         erroTelefone.style.display = 'none';
         telefoneInput.style.borderColor = '#28a745';
@@ -1650,12 +1729,13 @@
             const dadosPIX = {
                 amount: pacoteSelecionado.valor,
                 cpf: dadosUsuario.cpf,
-                telefone: telefoneNumeros,
+                telefone: telefoneNumeros, // Envia COMPLETO com tudo
                 quantidade: pacoteSelecionado.quantidade,
                 nome: `Cliente ${dadosUsuario.cpf.substring(0, 3)}***`
             };
             
             console.log('📤 Enviando para API JavaScript:', dadosPIX);
+            console.log('📱 Telefone enviado COMPLETO:', telefoneNumeros);
             
             const response = await fetch(ALLOWPAY_CONFIG.API_URL, {
                 method: 'POST',
@@ -1673,34 +1753,78 @@
                 throw new Error(resultado.error || 'Erro ao gerar PIX');
             }
             
+            // CORREÇÃO DO QR CODE - AGORA FUNCIONANDO
+            const qrCodeImageDiv = document.getElementById('qrCodeImage');
+            
+            // Limpa o conteúdo anterior
+            qrCodeImageDiv.innerHTML = '';
+            
+            // Cria a imagem do QR Code
             const qrCodeImage = resultado.qr_code_image || 
                 `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(resultado.codigo_pix || resultado.qr_code)}`;
             
-            document.getElementById('qrCodeImage').innerHTML = 
-                `<img src="${qrCodeImage}" alt="QR Code PIX" style="max-width: 200px; border: 1px solid #ddd;">`;
+            // Cria o elemento img com estilos
+            const img = document.createElement('img');
+            img.src = qrCodeImage;
+            img.alt = 'QR Code PIX';
+            img.style.maxWidth = '200px';
+            img.style.width = '100%';
+            img.style.height = 'auto';
+            img.style.border = '1px solid #ddd';
+            img.style.borderRadius = '8px';
+            img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
             
+            // Adiciona fallback em caso de erro
+            img.onerror = function() {
+                console.error('❌ Erro ao carregar QR Code, usando fallback');
+                this.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(resultado.codigo_pix || resultado.qr_code);
+                this.style.border = '2px solid #ff9800';
+            };
+            
+            // Adiciona a imagem ao div
+            qrCodeImageDiv.appendChild(img);
+            
+            // Adiciona também um link para download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = qrCodeImage;
+            downloadLink.download = 'qrcode-pix-vivasorte.png';
+            downloadLink.title = 'Clique para baixar o QR Code';
+            downloadLink.style.display = 'block';
+            downloadLink.style.marginTop = '10px';
+            downloadLink.style.fontSize = '12px';
+            downloadLink.style.color = '#2f4eb5';
+            downloadLink.textContent = '📥 Clique para baixar o QR Code';
+            
+            qrCodeImageDiv.appendChild(downloadLink);
+            
+            // Atualiza o código PIX para copiar
             document.getElementById('codigoPIX').value = resultado.codigo_pix || resultado.qr_code;
             
+            // Mostra a área do PIX
             document.getElementById('areaPIX').style.display = 'block';
             
+            // Esconde o botão de gerar PIX
             btnGerarPIX.style.display = 'none';
             
+            // Mostra a área de aguardando confirmação
             document.getElementById('aguardandoConfirmacao').style.display = 'block';
             
+            // Salva os dados da transação
             dadosUsuario.transactionId = resultado.transaction_id;
             dadosUsuario.pixData = resultado;
             
             localStorage.setItem(`pix_vs_${resultado.transaction_id}`, JSON.stringify({
                 ...resultado,
                 cpf: dadosUsuario.cpf,
-                telefone: dadosUsuario.telefone,
+                telefone: dadosUsuario.telefone, // Armazenado COMPLETO
+                telefone_formatado: telefoneInput.value, // Armazena como está formatado
                 quantidade: pacoteSelecionado.quantidade,
                 valor: pacoteSelecionado.valor,
                 gerado_em: new Date().toISOString(),
                 status: 'pending'
             }));
             
-            mostrarPopupNotificacao('PIX gerado! Copie o código ou escaneie o QR Code.');
+            mostrarPopupNotificacao('✅ PIX gerado com sucesso! QR Code disponível.');
             
             iniciarVerificacaoAutomatica();
             
@@ -1715,7 +1839,7 @@
             btnGerarPIX.disabled = false;
             btnGerarPIX.style.background = 'linear-gradient(to right, #2f4eb5, #3949ab)';
             
-            mostrarPopupNotificacao('Erro ao gerar PIX. Tente novamente.', true);
+            mostrarPopupNotificacao('❌ Erro ao gerar PIX. Tente novamente.', true);
         }
     }
 
@@ -1891,7 +2015,7 @@
         const transacao = {
             id: dadosUsuario.transactionId,
             cpf: dadosUsuario.cpf,
-            telefone: dadosUsuario.telefone,
+            telefone: dadosUsuario.telefone, // Armazenado COMPLETO
             quantidade: pacoteSelecionado.quantidade,
             valor: pacoteSelecionado.valor,
             data: new Date().toISOString(),
