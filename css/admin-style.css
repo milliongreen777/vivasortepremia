@@ -1,0 +1,55 @@
+/* admin-style.css */
+/* Estilos adicionais para o admin */
+
+.admin-link {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2f4eb5;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-size: 12px;
+    z-index: 9999;
+    opacity: 0.3;
+    transition: opacity 0.3s;
+}
+
+.admin-link:hover {
+    opacity: 1;
+    background: #263a9c;
+}
+
+.admin-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #00ff00;
+    color: #000;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+/* Animação para nova entrada */
+@keyframes newEntry {
+    0% { background-color: rgba(0, 255, 0, 0.3); }
+    100% { background-color: transparent; }
+}
+
+.new-entry {
+    animation: newEntry 2s ease-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .admin-link {
+        bottom: 10px;
+        right: 10px;
+        padding: 8px 12px;
+        font-size: 10px;
+    }
+}
