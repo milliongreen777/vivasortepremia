@@ -1088,7 +1088,8 @@
                     
                     <div class="form-group">
                         <label>Telefone (WhatsApp)</label>
-                        <input type="tel" id="inputTelefone" placeholder="(11) 99999-9999" maxlength="15">
+                        <input type="tel" id="inputTelefone" placeholder="Ex: (11) 99999-9999 ou 5511999999999" maxlength="15">
+                        <div class="exemplo-input">Digite com ou sem o código do Brasil (55). Ex: (11) 99999-9999 ou 5511999999999</div>
                         <div id="erroTelefone" class="mensagem-erro"></div>
                     </div>
                     
@@ -1590,19 +1591,27 @@
         }, 3000);
     }
 
-    // ETAPA 2: TELEFONE E PIX
+    // ETAPA 2: TELEFONE E PIX - CORREÇÃO PARA ACEITAR COM OU SEM 55
     document.getElementById('inputTelefone').addEventListener('input', function(e) {
-        formatarTelefone(this);
+        formatarTelefoneCompleto(this);
     });
 
-    function formatarTelefone(input) {
+    function formatarTelefoneCompleto(input) {
         let value = input.value.replace(/\D/g, '');
         
+        // Remove o 55 do início se existir
+        if (value.startsWith('55')) {
+            value = value.substring(2);
+        }
+        
+        // Limita a 11 dígitos (DDD + 9 dígitos)
         if (value.length > 11) {
             value = value.substring(0, 11);
         }
         
+        // Aplica a formatação brasileira
         if (value.length > 10) {
+            // Formato: (11) 99999-9999
             value = value.replace(/(\d{2})(\d)/, '($1) $2');
             value = value.replace(/(\d{5})(\d)/, '$1-$2');
         } else if (value.length > 6) {
@@ -1620,24 +1629,46 @@
 
     function validarTelefone(telefone) {
         const telefoneLimpo = telefone.replace(/\D/g, '');
-        return telefoneLimpo.length === 10 || telefoneLimpo.length === 11;
+        
+        // Remove o 55 se estiver no início
+        let numeroLimpo = telefoneLimpo;
+        if (numeroLimpo.startsWith('55')) {
+            numeroLimpo = numeroLimpo.substring(2);
+        }
+        
+        // Verifica se tem o tamanho correto (10 para 8 dígitos, 11 para 9 dígitos)
+        return numeroLimpo.length === 10 || numeroLimpo.length === 11;
+    }
+
+    // FUNÇÃO PARA NORMALIZAR TELEFONE (REMOVE 55 E FORMATA)
+    function normalizarTelefoneParaEnvio(telefone) {
+        let numeroLimpo = telefone.replace(/\D/g, '');
+        
+        // Remove o 55 do início se existir
+        if (numeroLimpo.startsWith('55')) {
+            numeroLimpo = numeroLimpo.substring(2);
+        }
+        
+        // Retorna apenas os números (DDD + número)
+        return numeroLimpo;
     }
 
     // FUNÇÃO PRINCIPAL PARA GERAR PIX
     async function gerarPIX() {
         const telefoneInput = document.getElementById('inputTelefone');
         const telefone = telefoneInput.value;
-        const telefoneNumeros = telefone.replace(/\D/g, '');
+        const telefoneNumeros = normalizarTelefoneParaEnvio(telefone);
         const erroTelefone = document.getElementById('erroTelefone');
         
         if (!validarTelefone(telefone)) {
-            erroTelefone.textContent = 'Telefone inválido. Digite um número com DDD + 8 ou 9 dígitos.';
+            erroTelefone.textContent = 'Telefone inválido. Digite um número com DDD + 8 ou 9 dígitos. Pode incluir ou não o código do Brasil (55).';
             erroTelefone.style.display = 'block';
             telefoneInput.style.borderColor = '#e74c3c';
             telefoneInput.focus();
             return;
         }
         
+        // Armazena o telefone normalizado (sem 55)
         dadosUsuario.telefone = telefoneNumeros;
         erroTelefone.style.display = 'none';
         telefoneInput.style.borderColor = '#28a745';
@@ -1650,12 +1681,13 @@
             const dadosPIX = {
                 amount: pacoteSelecionado.valor,
                 cpf: dadosUsuario.cpf,
-                telefone: telefoneNumeros,
+                telefone: telefoneNumeros, // Já normalizado sem 55
                 quantidade: pacoteSelecionado.quantidade,
                 nome: `Cliente ${dadosUsuario.cpf.substring(0, 3)}***`
             };
             
             console.log('📤 Enviando para API JavaScript:', dadosPIX);
+            console.log('📱 Telefone normalizado para envio:', telefoneNumeros);
             
             const response = await fetch(ALLOWPAY_CONFIG.API_URL, {
                 method: 'POST',
@@ -1693,7 +1725,8 @@
             localStorage.setItem(`pix_vs_${resultado.transaction_id}`, JSON.stringify({
                 ...resultado,
                 cpf: dadosUsuario.cpf,
-                telefone: dadosUsuario.telefone,
+                telefone: dadosUsuario.telefone, // Armazenado sem 55
+                telefone_original: telefoneInput.value, // Armazena como o usuário digitou
                 quantidade: pacoteSelecionado.quantidade,
                 valor: pacoteSelecionado.valor,
                 gerado_em: new Date().toISOString(),
@@ -1891,7 +1924,7 @@
         const transacao = {
             id: dadosUsuario.transactionId,
             cpf: dadosUsuario.cpf,
-            telefone: dadosUsuario.telefone,
+            telefone: dadosUsuario.telefone, // Já normalizado sem 55
             quantidade: pacoteSelecionado.quantidade,
             valor: pacoteSelecionado.valor,
             data: new Date().toISOString(),
