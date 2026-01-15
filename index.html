@@ -1107,9 +1107,7 @@
                     
                     <div id="areaPIX" class="area-pix">
                         <div class="qrcode-container">
-                            <div id="qrCodeImage" style="text-align: center; margin: 15px 0; min-height: 220px; display: flex; align-items: center; justify-content: center;">
-                                <!-- QR Code será inserido aqui -->
-                            </div>
+                            <div id="qrCodeImage"></div>
                             <p style="color: #666; font-size: 13px; margin-top: 10px;">Escaneie o QR Code com seu app bancário</p>
                         </div>
                         
@@ -1689,7 +1687,7 @@
         return numeroLimpo;
     }
 
-    // FUNÇÃO PRINCIPAL PARA GERAR PIX - CORRIGIDA COM QR CODE FUNCIONAL
+    // FUNÇÃO PRINCIPAL PARA GERAR PIX
     async function gerarPIX() {
         const telefoneInput = document.getElementById('inputTelefone');
         const telefone = telefoneInput.value;
@@ -1753,63 +1751,20 @@
                 throw new Error(resultado.error || 'Erro ao gerar PIX');
             }
             
-            // CORREÇÃO DO QR CODE - AGORA FUNCIONANDO
-            const qrCodeImageDiv = document.getElementById('qrCodeImage');
-            
-            // Limpa o conteúdo anterior
-            qrCodeImageDiv.innerHTML = '';
-            
-            // Cria a imagem do QR Code
             const qrCodeImage = resultado.qr_code_image || 
                 `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(resultado.codigo_pix || resultado.qr_code)}`;
             
-            // Cria o elemento img com estilos
-            const img = document.createElement('img');
-            img.src = qrCodeImage;
-            img.alt = 'QR Code PIX';
-            img.style.maxWidth = '200px';
-            img.style.width = '100%';
-            img.style.height = 'auto';
-            img.style.border = '1px solid #ddd';
-            img.style.borderRadius = '8px';
-            img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+            document.getElementById('qrCodeImage').innerHTML = 
+                `<img src="${qrCodeImage}" alt="QR Code PIX" style="max-width: 200px; border: 1px solid #ddd;">`;
             
-            // Adiciona fallback em caso de erro
-            img.onerror = function() {
-                console.error('❌ Erro ao carregar QR Code, usando fallback');
-                this.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(resultado.codigo_pix || resultado.qr_code);
-                this.style.border = '2px solid #ff9800';
-            };
-            
-            // Adiciona a imagem ao div
-            qrCodeImageDiv.appendChild(img);
-            
-            // Adiciona também um link para download
-            const downloadLink = document.createElement('a');
-            downloadLink.href = qrCodeImage;
-            downloadLink.download = 'qrcode-pix-vivasorte.png';
-            downloadLink.title = 'Clique para baixar o QR Code';
-            downloadLink.style.display = 'block';
-            downloadLink.style.marginTop = '10px';
-            downloadLink.style.fontSize = '12px';
-            downloadLink.style.color = '#2f4eb5';
-            downloadLink.textContent = '📥 Clique para baixar o QR Code';
-            
-            qrCodeImageDiv.appendChild(downloadLink);
-            
-            // Atualiza o código PIX para copiar
             document.getElementById('codigoPIX').value = resultado.codigo_pix || resultado.qr_code;
             
-            // Mostra a área do PIX
             document.getElementById('areaPIX').style.display = 'block';
             
-            // Esconde o botão de gerar PIX
             btnGerarPIX.style.display = 'none';
             
-            // Mostra a área de aguardando confirmação
             document.getElementById('aguardandoConfirmacao').style.display = 'block';
             
-            // Salva os dados da transação
             dadosUsuario.transactionId = resultado.transaction_id;
             dadosUsuario.pixData = resultado;
             
@@ -1824,7 +1779,7 @@
                 status: 'pending'
             }));
             
-            mostrarPopupNotificacao('✅ PIX gerado com sucesso! QR Code disponível.');
+            mostrarPopupNotificacao('PIX gerado! Copie o código ou escaneie o QR Code.');
             
             iniciarVerificacaoAutomatica();
             
@@ -1839,7 +1794,7 @@
             btnGerarPIX.disabled = false;
             btnGerarPIX.style.background = 'linear-gradient(to right, #2f4eb5, #3949ab)';
             
-            mostrarPopupNotificacao('❌ Erro ao gerar PIX. Tente novamente.', true);
+            mostrarPopupNotificacao('Erro ao gerar PIX. Tente novamente.', true);
         }
     }
 
